@@ -4,6 +4,21 @@ An easy to use Entity Component System library for use in game development. Lear
 * [Evolve Your Heirachy](http://cowboyprogramming.com/2007/01/05/evolve-your-heirachy/)
 * [Wikipedia](https://en.wikipedia.org/wiki/Entity%E2%80%93component%E2%80%93system)
 
+Getting Started
+
+* [Installation](#installation)
+* [Usage](#usage)
+  * [Components](#components)
+  * [Creating Entities](#creating-entities)
+  * [Add/Remove Components](#adding-and-removing-components)
+  * [Finding Entities](#finding-entities)
+  * [Updating Components](#updating-components)
+  * [Advanced Querying](#advanced-querying)
+  * [Big Picture](#big-picture)
+* [Notes](#notes)
+
+### Adding and Removing Components
+
 ## Installation
 
 Add this line to your application's Gemfile:
@@ -73,7 +88,7 @@ class Prefab
 end
 ```
 
-### Adding / Removing Components
+### Adding and Removing Components
 
 The great thing about ECS is the ability to add/remove components at runtime. Here's how to do it:
 
@@ -177,6 +192,49 @@ end
 *_!! DANGER !!_*
 
 Currently the caching mechanism in GameEcs does not know if the value of a component has changed since it was cached. Only use this for component values that do not change often, or clear your cache to get the results to update. The rough plan here is to eventually change components to be more of a DSL and have them notify the store on value changes of interest (If any queries care about the change)
+
+### Big Picture
+
+`EntityStore` is meant to be constructed and passed into a list of processing systems. This gem is entirely agnostic to how you implement your Game and Systems. A quick example _could_ look like:
+
+```ruby
+class Game
+  def intialize
+    @store = GameEcs::EntityStore.new
+    @render_system = RenderSystem.new(@store)
+    @systems = [
+      MovementSystem.new(@store),
+      # .. other systems
+      @render_system
+    ]
+  end
+
+  def update(time_delta, inputs)
+    @systems.each{|sys| sys.update(time_delta, inputs) }
+  end
+
+  def draw
+    @render_system.render
+  end
+end
+
+class MovementSystem
+  def initialize(store)
+    @store = store
+  end
+
+  def update(dt, inputs)
+    @store.each_entity(Position, Velocity) do |ent|
+      pos,vel = ent.components
+      pos.x += vel.x * dt
+      pos.y += vel.y * dt
+    end
+  end
+end
+
+
+```
+For a more fully fleshed out game using ECS in this way, checkout [Pixel Monster](https://github.com/shawn42/pixel_monster)
 
 
 ### Notes
