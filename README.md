@@ -239,6 +239,7 @@ For a more fully fleshed out game using ECS in this way, checkout [Pixel Monster
 
 ### Notes
 
+* entities can only have one instance of each component type
 * adding/removing entities and components is delayed until all iterating code has finished (calls to `each_entity`).
 * all queries are cached by default calling `clear_cache!` will reset the cache
 * to dump all entities and components from the store, use `clear!`
