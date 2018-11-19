@@ -36,12 +36,20 @@ class Timer
 end
 
 class SoundSystem
+  def preload(asset)
+    @assets ||= {}
+    @assets[asset] = Gosu::Sample.new(asset)
+  end
   def update(store, inputs)
     store.each_entity SoundEffectEvent do |rec|
       ent_id = rec.id
       effect = rec.get(SoundEffectEvent)
       store.remove_component klass: effect.class, id: ent_id
-      Gosu::Sample.new(effect.sound_to_play).play
+      if @assets[effect.sound_to_play]
+        @assets[effect.sound_to_play].play
+      else
+        puts "Warning:  #{effect.sound_to_play} is missing!"
+      end
     end
   end
 end

@@ -12,6 +12,8 @@ class CoinGetterGame < Window
     super(800,600)
     @entity_store = GameEcs::EntityStore.new
     @render_system = RenderSystem.new
+    @sound_system = SoundSystem.new
+    @sound_system.preload('coin.wav')
     @downs = []
 
     @systems = [
@@ -19,7 +21,7 @@ class CoinGetterGame < Window
       MotionSystem.new,
       TimerSystem.new,
       CoinSystem.new,
-      SoundSystem.new,
+      @sound_system,
       @render_system
     ]
 
