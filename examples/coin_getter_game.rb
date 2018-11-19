@@ -195,7 +195,6 @@ class CoinSystem
 end
 
 # Components
-class GenerateNewCoinEvent; end
 class Input
   attr_accessor :left, :right, :up, :down
 end
