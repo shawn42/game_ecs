@@ -61,6 +61,62 @@ RSpec.describe GameEcs::EntityStore do
     end
   end
 
+  describe '#each_entity' do
+    it 'yields each matching ent' do
+      ent1 = subject.add_entity(Position.new, Color.new)
+      ent2 = subject.add_entity(Position.new)
+      ent3 = subject.add_entity(Position.new, Color.new)
+      ents = []
+      subject.each_entity(Position, Color) do |ent|
+        ents << ent
+      end
+      expect(ents.map(&:id)).to contain_exactly(ent3, ent1)
+    end
+
+    it 'can safely remove while iterating' do
+      ent1 = subject.add_entity(Position.new, Color.new)
+      ent2 = subject.add_entity(Position.new)
+      ent3 = subject.add_entity(Position.new, Color.new)
+      ents = []
+      subject.each_entity(Position, Color) do |ent|
+        subject.remove_entity id: ent3 if ent.id == ent1
+
+        ents << ent
+      end
+      expect(ents.map(&:id)).to contain_exactly(ent3, ent1)
+    end
+
+    it 'can safely add while iterating' do
+      ent1 = subject.add_entity(Position.new, Color.new)
+      ent2 = subject.add_entity(Position.new)
+      ent3 = subject.add_entity(Position.new, Color.new)
+      ents = []
+      subject.each_entity(Position, Color) do |ent|
+        subject.add_entity(Position.new, Color.new)
+        ents << ent
+      end
+      expect(ents.map(&:id)).to contain_exactly(ent3, ent1)
+    end
+  end
+
+  describe "#add_component" do
+    context "with unknown entity id" do
+      it 'still adds it' do
+        subject.add_component(id: 12, component: Position.new )
+        ent = subject.find_by_id(12, Position)
+        expect(ent).to be
+      end
+    end
+
+    context "with nil component" do
+      it 'errors' do
+        ent = subject.add_entity(Position.new, Color.new)
+        expect{ subject.add_component(id: ent, component: nil ) }.to raise_exception(/nil/)
+      end
+    end
+
+  end
+
   describe '#musts' do
     it 'returns ents that have all the requested components' do
       ent1 = subject.add_entity(Position.new, Color.new)
@@ -90,51 +146,5 @@ RSpec.describe GameEcs::EntityStore do
       expect(results[1].components.size).to eq 2
       expect(results[1].components[0]).to be_a Position
     end
-  end
-end
-
-RSpec.describe GameEcs::Query do
-  describe 'hashing' do
-    context 'simple query' do
-      it 'returns the correct value from the hash using the query as a key' do
-        q = Q.must(Position)
-        cache = {}
-        cache[q] = :some_val
-        expect(cache[q]).to eq :some_val
-        
-        expect(cache[Q.must(Position)]).to eq :some_val
-      end
-    end
-
-    context 'complex query' do
-      it 'returns the correct value from the hash using the query as a key' do
-        q = Q.must(Position).maybe(Color)
-        cache = {}
-        cache[q] = :some_val
-        expect(cache[q]).to eq :some_val
-        expect(cache[Q.must(Position).maybe(Color)]).to eq :some_val
-      end
-    end
-
-    context 'complex query' do
-      it 'returns the correct value from the hash using the query as a key' do
-        q = Q.must(Position).maybe(Color).with(name: "monkey")
-        cache = {}
-        cache[q] = :some_val
-        expect(cache[q]).to eq :some_val
-        expect(cache[Q.must(Position).maybe(Color).with(name: "monkey")]).to eq :some_val
-      end
-    end
-
-    context 'complex query with lambda' do
-      it 'does not cache the query if a lambda is used' do
-        q = Q.must(Position).maybe(Color).with(x: ->(val){ val > 2 })
-        cache = {}
-        cache[q] = :some_val
-        expect(cache[q]).to eq :some_val
-        expect(cache[Q.must(Position).maybe(Color).with(x: ->(val){ val > 2 })]).not_to eq :some_val
-      end
-    end
-      
   end
 end

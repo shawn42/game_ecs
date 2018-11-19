@@ -1,3 +1,6 @@
+require 'forwardable'
+require 'set'
+
 module GameEcs
   class EntityStore
     attr_reader :entity_count, :id_to_comp
@@ -68,8 +71,11 @@ module GameEcs
         @comp_to_id[k] ||= []
       end
 
-      id_collection = @comp_to_id.values_at(*required_comps)
-      intersecting_ids = id_collection.sort_by(&:size).inject &:&
+      intersecting_ids = []
+      unless required_comps.empty?
+        id_collection = @comp_to_id.values_at(*required_comps)
+        intersecting_ids = id_collection.sort_by(&:size).inject &:&
+      end
 
       recs = intersecting_ids.
         select{|eid| q.matches?(eid, @id_to_comp[eid]) }.
@@ -191,6 +197,8 @@ module GameEcs
     end
 
     def _add_component(component:,id:)
+      raise "Cannot add nil component" if component.nil?
+
       @comp_to_id[component.class] ||= []
       @comp_to_id[component.class] << id
       @id_to_comp[id] ||= {}
@@ -299,7 +307,7 @@ module GameEcs
           yield rec
         end
       end
-      extend Forwardable
+      extend ::Forwardable
       def_delegators :@records, :first, :any?, :size, :select, :find, :empty?, :first, :map, :[]
 
     end
@@ -376,6 +384,9 @@ module GameEcs
 
   class Query
     attr_reader :components, :musts, :maybes
+    def self.none
+      Query.new
+    end
     def self.must(*args)
       Query.new.must(*args)
     end
@@ -385,10 +396,10 @@ module GameEcs
 
     def initialize
       @components = []
+      @musts = []
     end
 
     def must(k)
-      @musts ||= []
       @last_condition = Must.new(k)
       @musts << @last_condition
       @components << k
