@@ -61,6 +61,28 @@ RSpec.describe GameEcs::EntityStore do
     end
   end
 
+  describe '#remove_entity' do
+    it 'removes all traces of the entity' do
+      ent_id = subject.add_entity(Position.new, Color.new)
+      subject.remove_entity id: ent_id
+      expect(subject.find_by_id(ent_id)).to be nil
+    end
+
+    it 'cleans up after iterating' do
+      ent1 = subject.add_entity(Position.new, Color.new)
+      ent2 = subject.add_entity(Position.new, Color.new)
+      ent3 = subject.add_entity(Position.new, Color.new)
+      ent4 = subject.add_entity(Position.new, Color.new)
+      subject.each_entity(Position) do |ent|
+        subject.remove_entity id: ent.id
+      end
+      expect(subject.find_by_id(ent1)).to be nil
+      expect(subject.find_by_id(ent2)).to be nil
+      expect(subject.find_by_id(ent3)).to be nil
+      expect(subject.find_by_id(ent4)).to be nil
+    end
+  end
+
   describe '#each_entity' do
     it 'yields each matching ent' do
       ent1 = subject.add_entity(Position.new, Color.new)

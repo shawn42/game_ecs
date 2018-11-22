@@ -39,7 +39,7 @@ module GameEcs
     end
 
     def find_by_id(id, *klasses)
-      @id_to_comp[id] ||= {}
+      return nil unless @id_to_comp.key? id
       ent_record = @id_to_comp[id]
       components = ent_record.values_at(*klasses)
       rec = build_record(id, @id_to_comp[id], klasses) unless components.any?(&:nil?)
@@ -68,7 +68,7 @@ module GameEcs
       required_comps = q.required_components
 
       required_comps.each do |k|
-        @comp_to_id[k] ||= []
+        @comp_to_id[k] ||= Set.new
       end
 
       intersecting_ids = []
@@ -122,6 +122,8 @@ module GameEcs
       if _iterating?
         _remove_entities_later(ids: ids)
       else
+        # puts "REMOVE FOR REALZ #{ids.size}"
+
         _remove_entites(ids: ids)
       end
     end
@@ -150,11 +152,11 @@ module GameEcs
     end
     def _remove_entities_later(ids:)
       ids.each do |id|
-        @ents_to_remove_later << {id: id}
+        @ents_to_remove_later << id
       end
     end
     def _remove_entity_later(id:)
-      @ents_to_remove_later << {id: id}
+      @ents_to_remove_later << id
     end
 
     def _remove_component_later(klass:,id:)
@@ -165,8 +167,7 @@ module GameEcs
     end
 
     def _apply_updates
-      ids_to_remove = @ents_to_remove_later.map{|e|e[:id]}
-      _remove_entites ids: ids_to_remove
+      _remove_entites ids: @ents_to_remove_later
       @ents_to_remove_later.clear
 
       @comps_to_remove_later.each do |opts|
@@ -199,7 +200,7 @@ module GameEcs
     def _add_component(component:,id:)
       raise "Cannot add nil component" if component.nil?
 
-      @comp_to_id[component.class] ||= []
+      @comp_to_id[component.class] ||= Set.new
       @comp_to_id[component.class] << id
       @id_to_comp[id] ||= {}
       ent_record = @id_to_comp[id]
@@ -222,7 +223,7 @@ module GameEcs
     end
 
     def _remove_component(klass:, id:)
-      @comp_to_id[klass] ||= []
+      @comp_to_id[klass] ||= Set.new
       @comp_to_id[klass].delete id
       @id_to_comp[id] ||= {}
       @id_to_comp[id].delete klass
@@ -230,7 +231,7 @@ module GameEcs
       @cache.each do |q, results|
         comp_klasses = q.components
         if comp_klasses.include?(klass)
-          results.delete_if{|res| res.id == id} if results.has_id?(id) && !q.matches?(id, @id_to_comp[id])
+          results.delete(id: id) unless q.matches?(id, @id_to_comp[id])
         end
       end
       nil
@@ -239,30 +240,31 @@ module GameEcs
     def _remove_entites(ids:)
       return if ids.empty?
 
-      @entity_count -= ids.size
       ids.each do |id|
         @id_to_comp.delete(id)
       end
 
-      @comp_to_id.each do |klass, ents|
+      @comp_to_id.each do |_klass, ents|
         ents.delete_if{|ent_id| ids.include? ent_id}
       end
 
       @cache.each do |comp_klasses, results|
-        results.delete_if{|res| ids.include? res.id}
+        results.delete ids: ids
       end
     end
 
     def _remove_entity(id:)
+
+      comp_map = @id_to_comp[id]
       if @id_to_comp.delete(id)
-        @entity_count -= 1
-
-        @comp_to_id.each do |klass, ents|
-          ents.delete(id)
+        ent_comps = comp_map.keys
+        ent_comps.each do |klass|
+          @comp_to_id[klass].delete id
         end
-
-        @cache.each do |comp_klasses, results|
-          results.delete_if{|res| id == res.id} if results.has_id? id
+        @cache.each do |query, results|
+          # if query.components.any?{|comp| ent_comps.include?(comp)}
+            results.delete id: id
+          # end
         end
       end
     end
@@ -296,11 +298,19 @@ module GameEcs
       def has_id?(id)
         @ids.include? id
       end
-      def delete_if(&blk)
-        rec = @records.find(&blk)
-        @records.delete rec
-        @ids.delete(rec&.id)
-        rec
+      def delete(id:nil, ids:nil)
+        if id
+          @records.delete_at(@records.index{ |rec| id == rec&.id } || @records.size) if @ids.include? id
+          @ids.delete id
+        else
+          unless (@ids & ids).empty?
+          # ids.each do |id|
+          #   @ids.delete id
+          # end
+            @ids = @ids - ids
+            @records.delete_if{|res| ids.include? res.id}
+          end
+        end
       end
       def each
         @records.each do |rec|
@@ -325,7 +335,7 @@ module GameEcs
       end
 
       def components
-        @queried_components.map{|qc| @components[qc]}
+        @comp_cache ||= @queried_components.map{|qc| @components[qc]}
       end
     end
   end
@@ -432,7 +442,7 @@ module GameEcs
     end
 
     def cacheable?
-      @musts.all?{|m| m.attr_conditions.values.all?{|ac| !ac.respond_to?(:call) } }
+      @cacheable ||= @musts.all?{|m| m.attr_conditions.values.all?{|ac| !ac.respond_to?(:call) } }
     end
 
     alias eql? ==
