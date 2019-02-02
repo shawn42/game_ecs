@@ -44,6 +44,7 @@ class CoinGetterGame < Window
     @systems.each do |sys|
       sys.update(@entity_store, {dt: relative_delta, down_ids: @downs, total_time: Gosu::milliseconds})
     end
+    self.caption = "FPS: #{Gosu.fps}"
   end
 
   def draw

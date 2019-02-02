@@ -107,9 +107,9 @@ label = "simple query #{n} times from store with #{entity_store.entity_count} en
 #   end
 # end
 
-n = 1
+n = 20
 Benchmark.bm(10) do |x|
-  x.report 'pixel_monster' do
+  x.report 'add/query/remove' do
     n.times do |i|
       entity_store = EntityStore.new
       ent_ids = []

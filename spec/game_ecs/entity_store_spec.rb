@@ -168,5 +168,19 @@ RSpec.describe GameEcs::EntityStore do
       expect(results[1].components.size).to eq 2
       expect(results[1].components[0]).to be_a Position
     end
+
+    it 'properly updates the cache when a maybes nil becomes real' do
+      subject.clear!
+      ent_id = subject.add_entity(Position.new)
+
+      results = subject.query(Q.must(Position).maybe(Color))
+      expect(results.first.id).to eq ent_id
+      expect(results.first.components.last).to be nil
+
+      subject.add_component(id: ent_id, component: Color.new)
+      results = subject.query(Q.must(Position).maybe(Color))
+      expect(results.first.id).to eq ent_id
+      expect(results.first.components.last).to be_a Color
+    end
   end
 end

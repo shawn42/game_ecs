@@ -122,8 +122,6 @@ module GameEcs
       if _iterating?
         _remove_entities_later(ids: ids)
       else
-        # puts "REMOVE FOR REALZ #{ids.size}"
-
         _remove_entites(ids: ids)
       end
     end
@@ -214,7 +212,9 @@ module GameEcs
         # will musts vs maybes help here?
         comp_klasses = q.components
         if comp_klasses.include?(klass)
-          unless results.has_id?(id)
+          if results.has_id?(id)
+            results.add_component(id: id, component: component)
+          else
             results << build_record(id, ent_record, comp_klasses) if q.matches?(id, ent_record)
           end
         end
@@ -254,24 +254,21 @@ module GameEcs
     end
 
     def _remove_entity(id:)
-
       comp_map = @id_to_comp[id]
       if @id_to_comp.delete(id)
         ent_comps = comp_map.keys
         ent_comps.each do |klass|
           @comp_to_id[klass].delete id
         end
-        @cache.each do |query, results|
-          # if query.components.any?{|comp| ent_comps.include?(comp)}
+        @cache.each do |_query, results|
             results.delete id: id
-          # end
         end
       end
     end
 
     def _add_entity(id:, components:)
       components.each do |comp|
-        add_component component: comp, id: id
+        _add_component component: comp, id: id
       end
       id
     end
@@ -297,6 +294,10 @@ module GameEcs
       end
       def has_id?(id)
         @ids.include? id
+      end
+      def add_component(id:, component:)
+        index = @records.index{ |rec| id == rec&.id }
+        @records[index].update_component(component) if index >= 0
       end
       def delete(id:nil, ids:nil)
         if id
@@ -334,8 +335,18 @@ module GameEcs
         @components[klass]
       end
 
+      def update_component(component)
+        @components[component.class] = component
+        @comp_cache = comp_cache
+      end
+
       def components
-        @comp_cache ||= @queried_components.map{|qc| @components[qc]}
+        @comp_cache ||= comp_cache
+      end
+
+      private
+      def comp_cache
+        @queried_components.map{|qc| @components[qc]}
       end
     end
   end
