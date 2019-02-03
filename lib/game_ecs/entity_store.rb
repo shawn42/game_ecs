@@ -20,6 +20,10 @@ module GameEcs
       end
     end
 
+    def num_entities
+      @id_to_comp.keys.size
+    end
+
     def clear!
       @comp_to_id = {}
       @id_to_comp = {}
